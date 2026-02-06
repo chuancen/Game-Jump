@@ -1,0 +1,5 @@
+{
+  "name": "Neon Ascent: AI Jumper",
+  "description": "A high-octane cyberpunk infinite jumping game featuring a dynamic AI commentator powered by Gemini that reacts to your skill (or lack thereof) in real-time.",
+  "requestFramePermissions": []
+}
