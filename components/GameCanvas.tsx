@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { 
   GameState, 
@@ -42,7 +43,6 @@ interface GameCanvasProps {
   playerColor: string;
   doubleCredits: boolean;
   onGameOver: (score: number) => void;
-  onMilestone: (score: number) => void;
   onCheckpointReached: (altitude: number) => void;
   onLifeLost: () => void;
   onCoinEarned: () => void;
@@ -90,7 +90,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   playerColor,
   doubleCredits,
   onGameOver, 
-  onMilestone,
   onCheckpointReached,
   onLifeLost,
   onCoinEarned,
@@ -110,7 +109,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const internalCheckpointRef = useRef(rushProgress);
   const lastCoinRef = useRef(0);
   const lastRushCoinRef = useRef(0);
-  const lastMilestoneRef = useRef(0);
   const lastCheckpointAltitude = useRef(0);
   const [showCheckpointMsg, setShowCheckpointMsg] = useState(false);
   
@@ -175,7 +173,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     shakeRef.current = 0;
     lastCoinRef.current = startAltitude;
     lastRushCoinRef.current = startAltitude;
-    lastMilestoneRef.current = startAltitude;
     lastCheckpointAltitude.current = startAltitude;
     
     bulletsRef.current = [];
@@ -286,29 +283,58 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   }, [jumpMultiplier, gameState, isDying]);
 
-  const handleTouch = (e: React.TouchEvent) => {
-    // Prevent default scrolling on game area
-    if (e.cancelable) e.preventDefault();
+  const updateMovementStates = (touches: React.TouchList) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    let left = false;
+    let right = false;
+    
+    // Check all active touches
+    for (let i = 0; i < touches.length; i++) {
+      /**
+       * Fix: Use .item(i) to safely access touch and avoid 'unknown' type error for index access
+       */
+      const touch = touches.item(i);
+      if (!touch) continue;
+      const touchX = touch.clientX - rect.left;
+      const xRatio = touchX / rect.width;
+      
+      // MOVEMENT ZONES: Left 35%, Right 35%
+      // DEAD ZONE/JUMP ZONE: Middle 30%
+      if (xRatio < 0.35) left = true;
+      else if (xRatio > 0.65) right = true;
+    }
+    
+    setIsTouchingLeft(left);
+    setIsTouchingRight(right);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Only call preventDefault if it doesn't break clicking buttons inside
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    let left = false;
-    let right = false;
-
-    // Fix: Explicitly type touch to avoid 'unknown' type error for clientX in Array.from callback
-    Array.from(e.touches).forEach((touch: React.Touch) => {
+    // Separate logic: One pass for Jumps (on new touches), one for Movement (all touches)
+    Array.from(e.changedTouches).forEach((touch) => {
       const touchX = touch.clientX - rect.left;
       const xRatio = touchX / rect.width;
-      if (xRatio < 0.4) left = true;
-      else if (xRatio > 0.6) right = true;
-      else {
-        // Center tap for jump
+      
+      // JUMP ZONE: Middle 30% ONLY
+      if (xRatio >= 0.35 && xRatio <= 0.65) {
         handleManualJump();
       }
     });
 
-    setIsTouchingLeft(left);
-    setIsTouchingRight(right);
+    updateMovementStates(e.touches);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    updateMovementStates(e.touches);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    updateMovementStates(e.touches);
   };
 
   useEffect(() => {
@@ -454,10 +480,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         
         setScore(prev => {
           const next = prev + gainedScore;
-          if (next >= lastMilestoneRef.current + 2500) {
-            lastMilestoneRef.current = Math.floor(next / 2500) * 2500;
-            onMilestone(lastMilestoneRef.current);
-          }
           if (mode === GameMode.CLASSIC) {
              if (next >= lastCoinRef.current + 200) {
                lastCoinRef.current = Math.floor(next / 200) * 200;
@@ -585,16 +607,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     };
     draw();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState, jumpMultiplier, meterMultiplier, gravityMultiplier, playerColor, mode, checkpointInterval, onGameOver, onMilestone, onCheckpointReached, onLifeLost, onCoinEarned, generatePlatform, handleManualJump, triggerDeath, score, isDying, isTouchingLeft, isTouchingRight]);
+  }, [gameState, jumpMultiplier, meterMultiplier, gravityMultiplier, playerColor, mode, checkpointInterval, onGameOver, onCheckpointReached, onLifeLost, onCoinEarned, generatePlatform, handleManualJump, triggerDeath, score, isDying, isTouchingLeft, isTouchingRight]);
 
   return (
     <div 
       ref={containerRef}
       className="relative border-4 border-cyan-500 rounded-3xl shadow-[0_0_60px_rgba(0,255,255,0.3)] bg-black overflow-hidden touch-none h-full w-full max-w-[400px] max-h-[650px] aspect-[400/650]"
-      onTouchStart={handleTouch}
-      onTouchMove={handleTouch}
-      onTouchEnd={() => { setIsTouchingLeft(false); setIsTouchingRight(false); }}
-      onClick={handleManualJump}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {showLegend && <Legend onClose={() => setShowLegend(false)} />}
       
@@ -629,20 +650,31 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       </div>
 
-      {/* Mobile Control Visualizers */}
-      <div className="absolute inset-x-0 bottom-0 h-32 pointer-events-none flex justify-between px-6 pb-6 items-end">
-         <div className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all ${isTouchingLeft ? 'bg-cyan-500 border-white scale-110 opacity-100' : 'border-white/20 opacity-40'}`}>
-            <i className={`fas fa-chevron-left ${isTouchingLeft ? 'text-black' : 'text-white'}`}></i>
-         </div>
-         <div className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all ${isTouchingRight ? 'bg-cyan-500 border-white scale-110 opacity-100' : 'border-white/20 opacity-40'}`}>
-            <i className={`fas fa-chevron-right ${isTouchingRight ? 'text-black' : 'text-white'}`}></i>
-         </div>
-      </div>
+      {/* Mobile Control Visualizers: Only show in Playing state */}
+      {gameState === GameState.PLAYING && (
+        <div className="absolute inset-x-0 bottom-0 h-48 pointer-events-none flex justify-between items-end px-4 pb-8">
+          {/* Left Arrow */}
+          <div className={`w-20 h-20 rounded-2xl border-2 flex items-center justify-center transition-all ${isTouchingLeft ? 'bg-cyan-500 border-white scale-110' : 'bg-cyan-500/10 border-cyan-500/40 opacity-40'}`}>
+            <i className={`fas fa-arrow-left text-2xl ${isTouchingLeft ? 'text-black' : 'text-cyan-500'}`}></i>
+          </div>
 
-      {/* Legend Toggle - Bottom Right (Higher than controls) */}
+          {/* Jump Zone Indicator */}
+          <div className="flex flex-col items-center justify-center opacity-30">
+            <div className="text-[8px] font-orbitron text-white uppercase tracking-widest mb-1">Jump Sector</div>
+            <div className="w-16 h-10 border-x-2 border-dashed border-white/20"></div>
+          </div>
+
+          {/* Right Arrow */}
+          <div className={`w-20 h-20 rounded-2xl border-2 flex items-center justify-center transition-all ${isTouchingRight ? 'bg-cyan-500 border-white scale-110' : 'bg-cyan-500/10 border-cyan-500/40 opacity-40'}`}>
+            <i className={`fas fa-arrow-right text-2xl ${isTouchingRight ? 'text-black' : 'text-cyan-500'}`}></i>
+          </div>
+        </div>
+      )}
+
+      {/* Legend Toggle - Bottom Right */}
       <button 
         onClick={(e) => { e.stopPropagation(); sfx.playClick(); setShowLegend(true); }}
-        className="absolute bottom-20 right-4 z-50 bg-cyan-500 text-black w-10 h-10 rounded-xl flex items-center justify-center hover:bg-white transition-all shadow-[0_0_20px_rgba(0,255,255,0.5)] border-2 border-white/20 active:scale-90"
+        className="absolute bottom-52 right-4 z-50 bg-cyan-500 text-black w-10 h-10 rounded-xl flex items-center justify-center hover:bg-white transition-all shadow-[0_0_20px_rgba(0,255,255,0.5)] border-2 border-white/20 active:scale-90"
       >
         <i className="fas fa-list-ul text-xs"></i>
       </button>

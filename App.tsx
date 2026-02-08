@@ -2,10 +2,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import GameCanvas from './components/GameCanvas.tsx';
 import Shop from './components/Shop.tsx';
-import Announcer from './components/Announcer.tsx';
 import LevelEditor from './components/LevelEditor.tsx';
-import { getAnnouncerCommentary } from './services/geminiService.ts';
-import { GameState, GameMode, AnnouncerMessage, CustomLevel } from './types.ts';
+import { GameState, GameMode, CustomLevel } from './types.ts';
 import { SKINS } from './constants.ts';
 import { sfx } from './services/audioService.ts';
 
@@ -19,7 +17,6 @@ const App: React.FC = () => {
   const [currentScore, setCurrentScore] = useState<number>(0);
   const [coins, setCoins] = useState<number>(0);
   const [lives, setLives] = useState<number>(1);
-  const [announcerMessage, setAnnouncerMessage] = useState<AnnouncerMessage | null>(null);
   
   const [customLevels, setCustomLevels] = useState<CustomLevel[]>([]);
   const [activeCustomLevel, setActiveCustomLevel] = useState<CustomLevel | null>(null);
@@ -78,11 +75,6 @@ const App: React.FC = () => {
     return { level, progress, rank, nextLevelXP, availablePoints };
   }, [totalAltitude, spentLevelPoints]);
 
-  const triggerAnnouncer = useCallback(async (score: number, reason: 'death' | 'milestone' | 'start' | 'level_up') => {
-    const msg = await getAnnouncerCommentary(score, reason);
-    setAnnouncerMessage(msg);
-  }, []);
-
   const handleStart = (mode: GameMode = GameMode.CLASSIC, interval: number = 200, level?: CustomLevel) => {
     sfx.playClick();
     setGameMode(mode);
@@ -99,7 +91,6 @@ const App: React.FC = () => {
     setActiveLevelBoosts([]); 
     setGameState(GameState.PLAYING);
     setShowDifficultySelect(false);
-    triggerAnnouncer(0, 'start');
   };
 
   const handleCheckpointReached = useCallback((altitude: number) => {
@@ -124,8 +115,7 @@ const App: React.FC = () => {
     setTotalAltitude(newTotal);
     localStorage.setItem(userPrefix + 'total_alt', newTotal.toString());
     setGameState(GameState.GAMEOVER);
-    triggerAnnouncer(score, 'death');
-  }, [highScore, rushProgress, totalAltitude, triggerAnnouncer, boostsThisRound, gameMode, userPrefix]);
+  }, [highScore, rushProgress, totalAltitude, boostsThisRound, gameMode, userPrefix]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,7 +152,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4">
         <div className="bg-black/60 border-2 border-cyan-500 p-10 rounded-3xl shadow-[0_0_60px_rgba(0,255,255,0.3)] max-w-md w-full text-center space-y-8 animate-in zoom-in">
           <h1 className="text-6xl font-orbitron font-bold text-cyan-400 italic">ASCENT</h1>
-          <p className="text-gray-400 font-orbitron text-xs tracking-[0.3em] uppercase">Initialize Neural Link</p>
+          <p className="text-gray-400 font-orbitron text-xs tracking-[0.3em] uppercase">Initialize Link</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input 
               autoFocus
@@ -187,8 +177,6 @@ const App: React.FC = () => {
 
   return (
     <div className="h-[100dvh] w-full bg-[#050505] flex flex-col items-center justify-center p-2 md:p-4 relative overflow-hidden">
-      <Announcer message={announcerMessage} />
-
       {gameState === GameState.EDITOR && (
         <LevelEditor onSave={handleSaveLevel} onClose={goHome} />
       )}
@@ -286,7 +274,7 @@ const App: React.FC = () => {
               jumpMultiplier={1 + (jumpLevel * 0.1)} meterMultiplier={1 + (meterLevel * 0.2)}
               gravityMultiplier={boostsThisRound.includes('gravity_null') ? 0.85 : 1.0}
               playerColor={currentSkinColor} doubleCredits={isBuffActiveThisRound}
-              onGameOver={handleGameOver} onMilestone={s => triggerAnnouncer(s, 'milestone')}
+              onGameOver={handleGameOver} 
               onCheckpointReached={handleCheckpointReached}
               onLifeLost={() => setLives(prev => Math.max(0, prev - 1))}
               onCoinEarned={() => setCoins(prev => { const n = prev + 1; localStorage.setItem(userPrefix+'cr', n.toString()); return n; })}

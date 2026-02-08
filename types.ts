@@ -27,11 +27,6 @@ export interface Skin {
   cost: number;
 }
 
-export interface AnnouncerMessage {
-  text: string;
-  type: 'praise' | 'insult' | 'neutral';
-}
-
 export interface Platform {
   x: number;
   y: number;
@@ -71,4 +66,12 @@ export interface Player {
   immunityTimer: number;
   hasSpeedBoost: boolean;
   speedTimer: number;
+}
+
+/**
+ * Added AnnouncerMessage interface to fix import errors in geminiService and Announcer components
+ */
+export interface AnnouncerMessage {
+  text: string;
+  type: 'neutral' | 'praise' | 'insult';
 }
