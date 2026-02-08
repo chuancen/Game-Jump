@@ -103,7 +103,6 @@ const App: React.FC = () => {
   };
 
   const handleCheckpointReached = useCallback((altitude: number) => {
-    // Persistent checkpoint for Rush mode
     if (gameMode === GameMode.RUSH) {
       setRushProgress(altitude);
       localStorage.setItem(userPrefix + 'rush_progress', altitude.toString());
@@ -187,7 +186,7 @@ const App: React.FC = () => {
   const currentSkinColor = SKINS.find(s => s.id === activeSkinId)?.color || '#00ffaa';
 
   return (
-    <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="h-[100dvh] w-full bg-[#050505] flex flex-col items-center justify-center p-2 md:p-4 relative overflow-hidden">
       <Announcer message={announcerMessage} />
 
       {gameState === GameState.EDITOR && (
@@ -210,47 +209,46 @@ const App: React.FC = () => {
         />
       )}
 
-      <div className="z-10 flex flex-col items-center w-full max-w-lg">
+      <div className="z-10 flex flex-col items-center w-full max-w-lg h-full justify-center">
         {gameState === GameState.START && !showDifficultySelect && (
-          <div className="text-center space-y-6 w-full animate-in fade-in zoom-in">
-            <div className="flex justify-between items-center text-[10px] font-orbitron text-cyan-500/50 uppercase tracking-widest bg-black/40 p-2 rounded border border-cyan-500/20">
-              <span className="flex items-center"><i className="fas fa-user-astronaut mr-2"></i> {username}</span>
-              <button onClick={handleLogout} className="hover:text-white transition-colors border-l border-cyan-500/20 pl-4 ml-4">Terminate Link</button>
+          <div className="text-center space-y-4 md:space-y-6 w-full animate-in fade-in zoom-in px-4">
+            <div className="flex justify-between items-center text-[8px] md:text-[10px] font-orbitron text-cyan-500/50 uppercase tracking-widest bg-black/40 p-2 rounded border border-cyan-500/20">
+              <span className="flex items-center truncate max-w-[150px]"><i className="fas fa-user-astronaut mr-2"></i> {username}</span>
+              <button onClick={handleLogout} className="hover:text-white transition-colors border-l border-cyan-500/20 pl-4 ml-4">Logout</button>
             </div>
 
-            <h1 className="text-6xl md:text-7xl font-orbitron font-bold italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-cyan-400 to-blue-600 drop-shadow-[0_0_30px_rgba(34,211,238,0.5)]">NEON ASCENT</h1>
+            <h1 className="text-5xl md:text-7xl font-orbitron font-bold italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-cyan-400 to-blue-600 drop-shadow-[0_0_30px_rgba(34,211,238,0.5)]">NEON ASCENT</h1>
 
-            {/* Highscore Box */}
             <div className="bg-black/80 border-2 border-cyan-500/30 p-4 rounded-2xl shadow-[inset_0_0_20px_rgba(0,255,255,0.1)] flex flex-col items-center space-y-3">
-               <div className="text-[9px] font-orbitron text-cyan-500/60 uppercase tracking-[0.4em] font-bold">Record Archive</div>
+               <div className="text-[8px] md:text-[9px] font-orbitron text-cyan-500/60 uppercase tracking-[0.4em] font-bold">Record Archive</div>
                <div className="flex w-full justify-around divide-x divide-white/5">
                   <div className="px-4 text-center">
-                    <div className="text-[8px] text-gray-500 uppercase font-orbitron tracking-widest mb-1">Classic High</div>
-                    <div className="text-2xl font-orbitron text-cyan-400 font-bold">{highScore.toLocaleString()}<span className="text-xs ml-1 opacity-50">M</span></div>
+                    <div className="text-[7px] md:text-[8px] text-gray-500 uppercase font-orbitron tracking-widest mb-1">Classic High</div>
+                    <div className="text-xl md:text-2xl font-orbitron text-cyan-400 font-bold">{highScore.toLocaleString()}<span className="text-[10px] ml-1 opacity-50">M</span></div>
                   </div>
                   <div className="px-4 text-center">
-                    <div className="text-[8px] text-gray-500 uppercase font-orbitron tracking-widest mb-1">Rush Peak</div>
-                    <div className="text-2xl font-orbitron text-purple-400 font-bold">{rushProgress.toLocaleString()}<span className="text-xs ml-1 opacity-50">M</span></div>
+                    <div className="text-[7px] md:text-[8px] text-gray-500 uppercase font-orbitron tracking-widest mb-1">Rush Peak</div>
+                    <div className="text-xl md:text-2xl font-orbitron text-purple-400 font-bold">{rushProgress.toLocaleString()}<span className="text-[10px] ml-1 opacity-50">M</span></div>
                   </div>
                </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => handleStart(GameMode.CLASSIC)} className="py-5 bg-cyan-500 text-black font-orbitron font-bold uppercase hover:scale-105 transition-all rounded-xl shadow-[0_0_20px_rgba(0,255,255,0.3)] text-sm">Classic</button>
-              <button onClick={() => { sfx.playClick(); setShowDifficultySelect(true); }} className="py-5 bg-purple-600 text-white font-orbitron font-bold uppercase hover:scale-105 transition-all rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.3)] text-sm">Rush</button>
-              <button onClick={() => { sfx.playClick(); setGameState(GameState.EDITOR); }} className="py-5 border-2 border-yellow-500 text-yellow-500 font-orbitron font-bold uppercase hover:bg-yellow-500 hover:text-black transition-all rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.2)] text-sm">Architect</button>
-              <button onClick={() => { sfx.playClick(); setGameState(GameState.SHOP); }} className="py-5 border-2 border-magenta-500 text-magenta-500 font-orbitron font-bold uppercase hover:bg-magenta-500 hover:text-black transition-all rounded-xl shadow-[0_0_20px_rgba(255,0,255,0.2)] text-sm">Market</button>
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
+              <button onClick={() => handleStart(GameMode.CLASSIC)} className="py-4 md:py-5 bg-cyan-500 text-black font-orbitron font-bold uppercase hover:scale-105 transition-all rounded-xl shadow-[0_0_20px_rgba(0,255,255,0.3)] text-xs md:text-sm">Classic</button>
+              <button onClick={() => { sfx.playClick(); setShowDifficultySelect(true); }} className="py-4 md:py-5 bg-purple-600 text-white font-orbitron font-bold uppercase hover:scale-105 transition-all rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.3)] text-xs md:text-sm">Rush</button>
+              <button onClick={() => { sfx.playClick(); setGameState(GameState.EDITOR); }} className="py-4 md:py-5 border-2 border-yellow-500 text-yellow-500 font-orbitron font-bold uppercase hover:bg-yellow-500 hover:text-black transition-all rounded-xl text-xs md:text-sm">Architect</button>
+              <button onClick={() => { sfx.playClick(); setGameState(GameState.SHOP); }} className="py-4 md:py-5 border-2 border-magenta-500 text-magenta-500 font-orbitron font-bold uppercase hover:bg-magenta-500 hover:text-black transition-all rounded-xl text-xs md:text-sm">Market</button>
             </div>
 
             {customLevels.length > 0 && (
-              <div className="bg-black/60 border border-white/10 p-5 rounded-2xl max-h-40 overflow-y-auto custom-scrollbar">
-                <h3 className="text-[10px] text-gray-500 uppercase mb-3 tracking-widest text-left font-bold">Custom Uplinks</h3>
+              <div className="bg-black/60 border border-white/10 p-3 md:p-5 rounded-2xl max-h-32 md:max-h-40 overflow-y-auto custom-scrollbar">
+                <h3 className="text-[8px] md:text-[10px] text-gray-500 uppercase mb-2 md:mb-3 tracking-widest text-left font-bold">Custom Uplinks</h3>
                 <div className="space-y-2">
                   {customLevels.map(lvl => (
                     <button 
                       key={lvl.id} 
                       onClick={() => handleStart(GameMode.CUSTOM, 200, lvl)}
-                      className="w-full text-left p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-xs text-cyan-400 font-orbitron flex justify-between items-center transition-all group"
+                      className="w-full text-left p-2 md:p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-[10px] md:text-xs text-cyan-400 font-orbitron flex justify-between items-center transition-all group"
                     >
                       <span>{lvl.name}</span>
                       <i className="fas fa-play text-[8px] opacity-0 group-hover:opacity-100 transition-all"></i>
@@ -263,52 +261,54 @@ const App: React.FC = () => {
         )}
 
         {gameState === GameState.START && showDifficultySelect && (
-          <div className="text-center space-y-6 bg-black/90 p-10 border-2 border-purple-500 rounded-3xl animate-in zoom-in w-full shadow-[0_0_50px_rgba(168,85,247,0.4)]">
-            <h2 className="text-4xl font-orbitron text-purple-400 italic font-bold">RUSH MATRIX</h2>
+          <div className="text-center space-y-6 bg-black/90 p-8 md:p-10 border-2 border-purple-500 rounded-3xl animate-in zoom-in w-full shadow-[0_0_50px_rgba(168,85,247,0.4)] mx-4">
+            <h2 className="text-3xl md:text-4xl font-orbitron text-purple-400 italic font-bold">RUSH MATRIX</h2>
             <div className="flex flex-col space-y-3">
               {[200, 500, 1000, 2500].map(int => (
                 <button 
                   key={int} 
                   onClick={() => handleStart(GameMode.RUSH, int)} 
-                  className="py-5 border-2 border-white/10 hover:border-purple-500 font-orbitron text-white hover:bg-purple-500/20 transition-all rounded-xl uppercase tracking-widest text-sm"
+                  className="py-4 border-2 border-white/10 hover:border-purple-500 font-orbitron text-white hover:bg-purple-500/20 transition-all rounded-xl uppercase tracking-widest text-xs md:text-sm"
                 >
                   {int}M Checkpoints
                 </button>
               ))}
             </div>
-            <button onClick={() => { sfx.playClick(); setShowDifficultySelect(false); }} className="text-xs font-orbitron text-gray-500 hover:text-white mt-4 uppercase tracking-[0.3em]">Abort Matrix</button>
+            <button onClick={() => { sfx.playClick(); setShowDifficultySelect(false); }} className="text-[10px] font-orbitron text-gray-500 hover:text-white mt-4 uppercase tracking-[0.3em]">Abort Matrix</button>
           </div>
         )}
 
         {gameState === GameState.PLAYING && (
-          <GameCanvas 
-            gameState={gameState} lives={lives} highScore={highScore} rushProgress={rushProgress} mode={gameMode}
-            checkpointInterval={selectedCheckpointInterval} customLevel={activeCustomLevel}
-            jumpMultiplier={1 + (jumpLevel * 0.1)} meterMultiplier={1 + (meterLevel * 0.2)}
-            gravityMultiplier={boostsThisRound.includes('gravity_null') ? 0.85 : 1.0}
-            playerColor={currentSkinColor} doubleCredits={isBuffActiveThisRound}
-            onGameOver={handleGameOver} onMilestone={s => triggerAnnouncer(s, 'milestone')}
-            onCheckpointReached={handleCheckpointReached}
-            onLifeLost={() => setLives(prev => Math.max(0, prev - 1))}
-            onCoinEarned={() => setCoins(prev => { const n = prev + 1; localStorage.setItem(userPrefix+'cr', n.toString()); return n; })}
-            onAbort={goHome}
-          />
+          <div className="h-full w-full flex items-center justify-center p-2">
+            <GameCanvas 
+              gameState={gameState} lives={lives} highScore={highScore} rushProgress={rushProgress} mode={gameMode}
+              checkpointInterval={selectedCheckpointInterval} customLevel={activeCustomLevel}
+              jumpMultiplier={1 + (jumpLevel * 0.1)} meterMultiplier={1 + (meterLevel * 0.2)}
+              gravityMultiplier={boostsThisRound.includes('gravity_null') ? 0.85 : 1.0}
+              playerColor={currentSkinColor} doubleCredits={isBuffActiveThisRound}
+              onGameOver={handleGameOver} onMilestone={s => triggerAnnouncer(s, 'milestone')}
+              onCheckpointReached={handleCheckpointReached}
+              onLifeLost={() => setLives(prev => Math.max(0, prev - 1))}
+              onCoinEarned={() => setCoins(prev => { const n = prev + 1; localStorage.setItem(userPrefix+'cr', n.toString()); return n; })}
+              onAbort={goHome}
+            />
+          </div>
         )}
 
         {gameState === GameState.GAMEOVER && (
-          <div className="text-center space-y-8 bg-black/90 border-2 border-red-500 p-12 rounded-3xl animate-in zoom-in w-full shadow-[0_0_80px_rgba(239,68,68,0.4)]">
-            <h2 className="text-6xl font-orbitron text-red-500 italic uppercase font-bold tracking-tighter">System Crash</h2>
-            <div className="text-8xl font-orbitron text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]">{currentScore}M</div>
-            <div className="flex space-x-4">
+          <div className="text-center space-y-6 md:space-y-8 bg-black/90 border-2 border-red-500 p-8 md:p-12 rounded-3xl animate-in zoom-in w-full shadow-[0_0_80px_rgba(239,68,68,0.4)] mx-4">
+            <h2 className="text-4xl md:text-6xl font-orbitron text-red-500 italic uppercase font-bold tracking-tighter">System Crash</h2>
+            <div className="text-6xl md:text-8xl font-orbitron text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]">{currentScore}M</div>
+            <div className="flex space-x-3 md:space-x-4">
               <button 
                 onClick={() => { sfx.playClick(); handleStart(gameMode, selectedCheckpointInterval, activeCustomLevel || undefined); }} 
-                className="flex-1 py-6 bg-red-600/20 border-2 border-red-500 text-red-500 font-orbitron text-xl font-bold uppercase hover:bg-red-500 hover:text-white transition-all rounded-xl"
+                className="flex-1 py-4 md:py-6 bg-red-600/20 border-2 border-red-500 text-red-500 font-orbitron text-lg md:text-xl font-bold uppercase hover:bg-red-500 hover:text-white transition-all rounded-xl"
               >
                 Reboot
               </button>
               <button 
                 onClick={() => { sfx.playClick(); goHome(); }} 
-                className="flex-1 py-6 bg-gray-600/20 border-2 border-gray-500 text-gray-400 font-orbitron text-xl font-bold uppercase hover:bg-gray-500 hover:text-white transition-all rounded-xl"
+                className="flex-1 py-4 md:py-6 bg-gray-600/20 border-2 border-gray-500 text-gray-400 font-orbitron text-lg md:text-xl font-bold uppercase hover:bg-gray-500 hover:text-white transition-all rounded-xl"
               >
                 HOME
               </button>

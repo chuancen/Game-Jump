@@ -97,12 +97,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   onAbort
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [score, setScore] = useState(0);
   const [showLegend, setShowLegend] = useState(false);
   const [isDying, setIsDying] = useState(false);
   const shakeRef = useRef(0);
   
-  // Ref to track checkpoint internally to prevent prop-driven resets
+  // Mobile touch states
+  const [isTouchingLeft, setIsTouchingLeft] = useState(false);
+  const [isTouchingRight, setIsTouchingRight] = useState(false);
+
   const internalCheckpointRef = useRef(rushProgress);
   const lastCoinRef = useRef(0);
   const lastRushCoinRef = useRef(0);
@@ -164,8 +168,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, []);
 
   const initGame = useCallback((isRespawn: boolean = false) => {
-    // Determine starting altitude based on current checkpoint
-    // If it's a respawn, we use our internal tracking of the hit checkpoint
     const startAltitude = mode === GameMode.RUSH ? internalCheckpointRef.current : 0;
     
     setScore(startAltitude);
@@ -218,14 +220,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   }, [generatePlatform, playerColor, mode, customLevel]);
 
-  // Handle initial mount or mode changes ONLY when not playing
   useEffect(() => {
     if (gameState === GameState.PLAYING) {
-      // Sync internal ref with prop only at game start
       internalCheckpointRef.current = rushProgress;
       initGame();
     }
-  }, [gameState]); // Only depend on gameState to prevent prop-driven mid-game resets
+  }, [gameState]);
 
   useEffect(() => {
     const handleKeys = (e: KeyboardEvent) => (keysRef.current[e.code] = e.type === 'keydown');
@@ -264,7 +264,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     setTimeout(() => {
       if (mode === GameMode.RUSH) {
-        // Respawn logic
         initGame(true);
       } else if (lives > 1) {
         onLifeLost();
@@ -286,6 +285,31 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       sfx.playJump();
     }
   }, [jumpMultiplier, gameState, isDying]);
+
+  const handleTouch = (e: React.TouchEvent) => {
+    // Prevent default scrolling on game area
+    if (e.cancelable) e.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    let left = false;
+    let right = false;
+
+    // Fix: Explicitly type touch to avoid 'unknown' type error for clientX in Array.from callback
+    Array.from(e.touches).forEach((touch: React.Touch) => {
+      const touchX = touch.clientX - rect.left;
+      const xRatio = touchX / rect.width;
+      if (xRatio < 0.4) left = true;
+      else if (xRatio > 0.6) right = true;
+      else {
+        // Center tap for jump
+        handleManualJump();
+      }
+    });
+
+    setIsTouchingLeft(left);
+    setIsTouchingRight(right);
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -331,8 +355,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       const accel = player.hasSpeedBoost ? PLAYER_ACCEL * 2.0 : PLAYER_ACCEL;
       const maxSpd = player.hasSpeedBoost ? MAX_PLAYER_SPEED * 2.2 : MAX_PLAYER_SPEED;
 
-      if (keysRef.current['ArrowLeft'] || keysRef.current['KeyA']) player.vx -= accel;
-      else if (keysRef.current['ArrowRight'] || keysRef.current['KeyD']) player.vx += accel;
+      if (keysRef.current['ArrowLeft'] || keysRef.current['KeyA'] || isTouchingLeft) player.vx -= accel;
+      else if (keysRef.current['ArrowRight'] || keysRef.current['KeyD'] || isTouchingRight) player.vx += accel;
       else player.vx *= PLAYER_FRICTION;
 
       if (keysRef.current['Space'] || keysRef.current['ArrowUp'] || keysRef.current['KeyW']) {
@@ -446,11 +470,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                onCoinEarned();
                sfx.playCoin();
              }
-             // Checkpoint Logic
              if (Math.floor(next / checkpointInterval) > Math.floor(lastCheckpointAltitude.current / checkpointInterval)) {
                const newCheckpoint = Math.floor(next / checkpointInterval) * checkpointInterval;
                lastCheckpointAltitude.current = newCheckpoint;
-               // Important: update our internal ref so respawns happen here
                internalCheckpointRef.current = newCheckpoint;
                setShowCheckpointMsg(true);
                setTimeout(() => setShowCheckpointMsg(false), 2000);
@@ -563,10 +585,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     };
     draw();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState, jumpMultiplier, meterMultiplier, gravityMultiplier, playerColor, mode, checkpointInterval, onGameOver, onMilestone, onCheckpointReached, onLifeLost, onCoinEarned, generatePlatform, handleManualJump, triggerDeath, score, isDying]);
+  }, [gameState, jumpMultiplier, meterMultiplier, gravityMultiplier, playerColor, mode, checkpointInterval, onGameOver, onMilestone, onCheckpointReached, onLifeLost, onCoinEarned, generatePlatform, handleManualJump, triggerDeath, score, isDying, isTouchingLeft, isTouchingRight]);
 
   return (
-    <div className="relative border-4 border-cyan-500 rounded-3xl shadow-[0_0_60px_rgba(0,255,255,0.3)] bg-black overflow-hidden scale-[0.85] md:scale-100">
+    <div 
+      ref={containerRef}
+      className="relative border-4 border-cyan-500 rounded-3xl shadow-[0_0_60px_rgba(0,255,255,0.3)] bg-black overflow-hidden touch-none h-full w-full max-w-[400px] max-h-[650px] aspect-[400/650]"
+      onTouchStart={handleTouch}
+      onTouchMove={handleTouch}
+      onTouchEnd={() => { setIsTouchingLeft(false); setIsTouchingRight(false); }}
+      onClick={handleManualJump}
+    >
       {showLegend && <Legend onClose={() => setShowLegend(false)} />}
       
       {showCheckpointMsg && (
@@ -580,35 +609,45 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       {/* Exit Button - Top Left */}
       <button 
-        onClick={() => { sfx.playClick(); onAbort(); }}
-        className="absolute top-6 left-6 z-50 bg-red-600/90 text-white w-12 h-12 rounded-2xl flex items-center justify-center hover:bg-white hover:text-red-600 transition-all shadow-[0_0_20px_rgba(239,68,68,0.6)] border-2 border-white/20 active:scale-95"
+        onClick={(e) => { e.stopPropagation(); sfx.playClick(); onAbort(); }}
+        className="absolute top-4 left-4 z-50 bg-red-600/90 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-white hover:text-red-600 transition-all shadow-[0_0_20px_rgba(239,68,68,0.6)] border-2 border-white/20 active:scale-95"
         title="Abort Run"
       >
-        <i className="fas fa-power-off"></i>
+        <i className="fas fa-power-off text-xs"></i>
       </button>
 
       {/* Meter - Top Right */}
-      <div className="absolute top-6 right-6 z-20 text-right flex flex-col items-end pointer-events-none select-none">
-        <div className="font-orbitron text-cyan-400 text-6xl font-black drop-shadow-[0_0_20px_rgba(0,255,255,1)] italic tracking-tighter">
-          {Math.floor(score)}<span className="text-xl ml-1 not-italic opacity-70">M</span>
+      <div className="absolute top-4 right-4 z-20 text-right flex flex-col items-end pointer-events-none select-none">
+        <div className="font-orbitron text-cyan-400 text-4xl md:text-6xl font-black drop-shadow-[0_0_20px_rgba(0,255,255,1)] italic tracking-tighter">
+          {Math.floor(score)}<span className="text-sm md:text-xl ml-1 not-italic opacity-70">M</span>
         </div>
-        <div className="flex items-center mt-2 bg-black/70 px-4 py-1.5 rounded-full border-2 border-cyan-500/40 backdrop-blur-md">
-          <i className="fas fa-heart text-red-500 mr-2 text-[12px] animate-pulse"></i>
-          <span className="text-[12px] font-orbitron text-white font-bold tracking-[0.2em] uppercase">
-            {mode === GameMode.RUSH ? 'Matrix Infinity' : `Link Stability: ${lives}`}
+        <div className="flex items-center mt-1 bg-black/70 px-3 py-1 rounded-full border border-cyan-500/40 backdrop-blur-md">
+          <i className="fas fa-heart text-red-500 mr-2 text-[10px] animate-pulse"></i>
+          <span className="text-[10px] font-orbitron text-white font-bold tracking-[0.2em] uppercase">
+            {mode === GameMode.RUSH ? 'Matrix' : lives}
           </span>
         </div>
       </div>
 
-      {/* Legend Toggle - Bottom Right */}
+      {/* Mobile Control Visualizers */}
+      <div className="absolute inset-x-0 bottom-0 h-32 pointer-events-none flex justify-between px-6 pb-6 items-end">
+         <div className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all ${isTouchingLeft ? 'bg-cyan-500 border-white scale-110 opacity-100' : 'border-white/20 opacity-40'}`}>
+            <i className={`fas fa-chevron-left ${isTouchingLeft ? 'text-black' : 'text-white'}`}></i>
+         </div>
+         <div className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all ${isTouchingRight ? 'bg-cyan-500 border-white scale-110 opacity-100' : 'border-white/20 opacity-40'}`}>
+            <i className={`fas fa-chevron-right ${isTouchingRight ? 'text-black' : 'text-white'}`}></i>
+         </div>
+      </div>
+
+      {/* Legend Toggle - Bottom Right (Higher than controls) */}
       <button 
-        onClick={() => { sfx.playClick(); setShowLegend(true); }}
-        className="absolute bottom-6 right-6 z-50 bg-cyan-500 text-black w-12 h-12 rounded-2xl flex items-center justify-center hover:bg-white transition-all shadow-[0_0_20px_rgba(0,255,255,0.5)] border-2 border-white/20 active:scale-90"
+        onClick={(e) => { e.stopPropagation(); sfx.playClick(); setShowLegend(true); }}
+        className="absolute bottom-20 right-4 z-50 bg-cyan-500 text-black w-10 h-10 rounded-xl flex items-center justify-center hover:bg-white transition-all shadow-[0_0_20px_rgba(0,255,255,0.5)] border-2 border-white/20 active:scale-90"
       >
-        <i className="fas fa-list-ul"></i>
+        <i className="fas fa-list-ul text-xs"></i>
       </button>
       
-      <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="block cursor-crosshair" onClick={handleManualJump} />
+      <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="block cursor-crosshair h-full w-full" />
     </div>
   );
 };
