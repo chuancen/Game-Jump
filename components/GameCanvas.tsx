@@ -111,6 +111,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const lastRushCoinRef = useRef(0);
   const lastCheckpointAltitude = useRef(0);
   const [showCheckpointMsg, setShowCheckpointMsg] = useState(false);
+  const [showDifficultySpike, setShowDifficultySpike] = useState<string | null>(null);
+  const lastKnownTier = useRef(0);
   
   const playerRef = useRef<Player & { isGrounded: boolean, killTimer: number, standingOnKillPad: boolean }>({
     x: CANVAS_WIDTH / 2 - 12.5,
@@ -135,38 +137,88 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const particlesRef = useRef<Particle[]>([]);
   const keysRef = useRef<Record<string, boolean>>({});
 
-  const generatePlatform = useCallback((y: number, lastX: number): Platform => {
+  // DIFFICULTY SCALING LOGIC
+  const getDifficultyTier = useCallback((currentScore: number) => {
+    if (currentScore >= 1000000) return 3;
+    if (currentScore >= 50000) return 2;
+    if (currentScore >= 10000) return 1;
+    return 0;
+  }, []);
+
+  const getDifficultyParams = useCallback((tier: number) => {
+    switch(tier) {
+      case 3: // 1,000,000+
+        return {
+          width: 50,
+          gap: 135,
+          turretChance: 0.65,
+          movingSpeed: 3.5,
+          laserRatio: 0.9
+        };
+      case 2: // 50,000+
+        return {
+          width: 65,
+          gap: 105,
+          turretChance: 0.45,
+          movingSpeed: 2.5,
+          laserRatio: 0.6
+        };
+      case 1: // 10,000+
+        return {
+          width: 75,
+          gap: 85,
+          turretChance: 0.30,
+          movingSpeed: 2.0,
+          laserRatio: 0.4
+        };
+      default: // 0+
+        return {
+          width: PLATFORM_WIDTH,
+          gap: VERTICAL_GAP,
+          turretChance: 0.20,
+          movingSpeed: 1.5,
+          laserRatio: 0.3
+        };
+    }
+  }, []);
+
+  const generatePlatform = useCallback((y: number, lastX: number, currentScore: number): Platform => {
+    const tier = getDifficultyTier(currentScore);
+    const params = getDifficultyParams(tier);
+    
     const r = Math.random();
     let type: PlatformType = 'normal';
     
+    // Powerups become rarer as difficulty increases
+    const powerupPenalty = tier * 0.05;
+
     if (r > 0.94) type = 'kill';
-    else if (r > 0.90) type = 'teleport';
-    else if (r > 0.86) type = 'speed';
-    else if (r > 0.82) type = 'immunity';
+    else if (r > 0.90 + powerupPenalty) type = 'teleport';
+    else if (r > 0.86 + powerupPenalty) type = 'speed';
+    else if (r > 0.82 + powerupPenalty) type = 'immunity';
     else if (r > 0.70) type = 'moving';
     else if (r > 0.60) type = 'spring';
     else if (r > 0.50 && y < -2000) type = 'breakable';
 
     let dx = 0;
-    if (type === 'moving') dx = (Math.random() > 0.5 ? 1.5 : -1.5);
+    if (type === 'moving') dx = (Math.random() > 0.5 ? params.movingSpeed : -params.movingSpeed);
 
     let x = lastX + (Math.random() - 0.5) * 260;
-    x = Math.max(0, Math.min(CANVAS_WIDTH - PLATFORM_WIDTH, x));
+    x = Math.max(0, Math.min(CANVAS_WIDTH - params.width, x));
 
-    if (Math.random() < 0.20) { // Slightly increased spawn rate
-      const isLaser = Math.random() < 0.4;
+    if (Math.random() < params.turretChance) {
+      const isLaser = Math.random() < params.laserRatio;
       turretsRef.current.push({
         y: y - 25,
         side: Math.random() > 0.5 ? 'left' : 'right',
-        // CRITICAL FIX: Ensure fireCooldown starts as an integer
         fireCooldown: Math.floor(isLaser ? Math.random() * 480 : Math.random() * 120),
         fired: false,
         type: isLaser ? 'laser' : 'normal'
       });
     }
 
-    return { x, y, width: PLATFORM_WIDTH, height: PLATFORM_HEIGHT, type, dx, broken: false };
-  }, []);
+    return { x, y, width: params.width, height: PLATFORM_HEIGHT, type, dx, broken: false };
+  }, [getDifficultyTier, getDifficultyParams]);
 
   const initGame = useCallback((isRespawn: boolean = false) => {
     setScore(prev => {
@@ -179,6 +231,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       lastCoinRef.current = startAltitude;
       lastRushCoinRef.current = startAltitude;
       lastCheckpointAltitude.current = startAltitude;
+      lastKnownTier.current = getDifficultyTier(startAltitude);
       return startAltitude;
     });
 
@@ -217,15 +270,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       let lastY = CANVAS_HEIGHT - 50;
       let lastX = startP.x;
+      const initialTier = getDifficultyTier(mode === GameMode.RUSH ? internalCheckpointRef.current : 0);
+      const initialParams = getDifficultyParams(initialTier);
+
       for (let i = 1; i < MAX_PLATFORMS; i++) {
-        lastY -= VERTICAL_GAP;
-        const nextP = generatePlatform(lastY, lastX);
+        lastY -= initialParams.gap;
+        const nextP = generatePlatform(lastY, lastX, mode === GameMode.RUSH ? internalCheckpointRef.current : 0);
         platforms.push(nextP);
         lastX = nextP.x;
       }
       platformsRef.current = platforms;
     }
-  }, [generatePlatform, playerColor, mode, customLevel]);
+  }, [generatePlatform, playerColor, mode, customLevel, getDifficultyTier, getDifficultyParams]);
 
   useEffect(() => {
     if (gameState === GameState.PLAYING) {
@@ -466,8 +522,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       // Turret Cycle logic
       for (let i = turrets.length - 1; i >= 0; i--) {
         const t = turrets[i];
-        
-        // CLEANUP: Remove off-screen turrets to maintain performance
         if (t.y > CANVAS_HEIGHT + 150) {
           turrets.splice(i, 1);
           continue;
@@ -487,7 +541,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             if (current === wait) sfx.playTeleport(); 
           }
         } else {
-          // Normal bullet turret - fires every 2 seconds at 60fps
           if (t.fireCooldown % 120 === 0) {
             bullets.push({
               x: t.side === 'left' ? 10 : CANVAS_WIDTH - 10,
@@ -514,6 +567,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         
         setScore(prev => {
           const next = prev + gainedScore;
+          
+          // Check for difficulty spikes
+          const tier = getDifficultyTier(next);
+          if (tier > lastKnownTier.current) {
+            lastKnownTier.current = tier;
+            let msg = "HARD MODE";
+            if (tier === 2) msg = "INSANE MODE";
+            if (tier === 3) msg = "IMPOSSIBLE MODE";
+            setShowDifficultySpike(msg);
+            setTimeout(() => setShowDifficultySpike(null), 3000);
+            sfx.playPowerup();
+            shakeRef.current = 10;
+          }
+
           if (mode === GameMode.CLASSIC) {
              if (next >= lastCoinRef.current + 200) {
                lastCoinRef.current = Math.floor(next / 200) * 200;
@@ -551,7 +618,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 anchorX = other.x;
               }
             });
-            platforms[idx] = generatePlatform(minY - VERTICAL_GAP, anchorX);
+            
+            // Calculate correct next Y based on current difficulty gap
+            const currentTier = getDifficultyTier(score);
+            const params = getDifficultyParams(currentTier);
+            platforms[idx] = generatePlatform(minY - params.gap, anchorX, score);
           }
         });
 
@@ -671,7 +742,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     };
     draw();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState, jumpMultiplier, meterMultiplier, gravityMultiplier, playerColor, mode, checkpointInterval, onGameOver, onCheckpointReached, onLifeLost, onCoinEarned, generatePlatform, handleManualJump, triggerDeath, score, isDying, isTouchingLeft, isTouchingRight]);
+  }, [gameState, jumpMultiplier, meterMultiplier, gravityMultiplier, playerColor, mode, checkpointInterval, onGameOver, onCheckpointReached, onLifeLost, onCoinEarned, generatePlatform, handleManualJump, triggerDeath, score, isDying, isTouchingLeft, isTouchingRight, getDifficultyTier, getDifficultyParams]);
 
   return (
     <div 
@@ -689,6 +760,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             SYNC POINT<br/>
             <span className="text-[10px] uppercase opacity-60">Progress Stored</span>
           </div>
+        </div>
+      )}
+
+      {showDifficultySpike && (
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none w-full px-10 text-center animate-pulse">
+           <div className="bg-red-600/90 border-y-4 border-white py-2 shadow-[0_0_50px_rgba(239,68,68,0.8)]">
+              <div className="text-white font-orbitron font-black text-2xl italic tracking-tighter">DIFFICULTY SPIKE</div>
+              <div className="text-white font-orbitron text-[10px] uppercase font-bold tracking-[0.5em]">{showDifficultySpike}</div>
+           </div>
         </div>
       )}
 
