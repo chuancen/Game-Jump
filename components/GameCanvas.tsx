@@ -1,5 +1,4 @@
 
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { 
   GameState, 
@@ -58,7 +57,7 @@ interface Particle {
   vx: number;
   vy: number;
   angle: number;
-  va: number; // angular velocity
+  va: number; 
   isVoxel?: boolean;
 }
 
@@ -105,6 +104,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   // Mobile touch states
   const [isTouchingLeft, setIsTouchingLeft] = useState(false);
   const [isTouchingRight, setIsTouchingRight] = useState(false);
+  const [isJumpActive, setIsJumpActive] = useState(false);
 
   const internalCheckpointRef = useRef(rushProgress);
   const lastCoinRef = useRef(0);
@@ -153,12 +153,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     let x = lastX + (Math.random() - 0.5) * 260;
     x = Math.max(0, Math.min(CANVAS_WIDTH - PLATFORM_WIDTH, x));
 
-    if (Math.random() < 0.12) {
+    if (Math.random() < 0.20) { // Slightly increased spawn rate
+      const isLaser = Math.random() < 0.4;
       turretsRef.current.push({
-        y: y - 20,
+        y: y - 25,
         side: Math.random() > 0.5 ? 'left' : 'right',
-        fireCooldown: Math.random() * 100,
-        fired: false
+        // CRITICAL FIX: Ensure fireCooldown starts as an integer
+        fireCooldown: Math.floor(isLaser ? Math.random() * 480 : Math.random() * 120),
+        fired: false,
+        type: isLaser ? 'laser' : 'normal'
       });
     }
 
@@ -166,14 +169,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, []);
 
   const initGame = useCallback((isRespawn: boolean = false) => {
-    const startAltitude = mode === GameMode.RUSH ? internalCheckpointRef.current : 0;
-    
-    setScore(startAltitude);
+    setScore(prev => {
+      let startAltitude = 0;
+      if (mode === GameMode.RUSH) {
+        startAltitude = internalCheckpointRef.current;
+      } else if (mode === GameMode.CLASSIC && isRespawn) {
+        startAltitude = prev;
+      }
+      lastCoinRef.current = startAltitude;
+      lastRushCoinRef.current = startAltitude;
+      lastCheckpointAltitude.current = startAltitude;
+      return startAltitude;
+    });
+
     setIsDying(false);
     shakeRef.current = 0;
-    lastCoinRef.current = startAltitude;
-    lastRushCoinRef.current = startAltitude;
-    lastCheckpointAltitude.current = startAltitude;
     
     bulletsRef.current = [];
     turretsRef.current = [];
@@ -222,7 +232,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       internalCheckpointRef.current = rushProgress;
       initGame();
     }
-  }, [gameState]);
+  }, [gameState, initGame, rushProgress]);
 
   useEffect(() => {
     const handleKeys = (e: KeyboardEvent) => (keysRef.current[e.code] = e.type === 'keydown');
@@ -289,44 +299,44 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     
     let left = false;
     let right = false;
+    let jumping = false;
     
-    // Check all active touches
     for (let i = 0; i < touches.length; i++) {
-      /**
-       * Fix: Use .item(i) to safely access touch and avoid 'unknown' type error for index access
-       */
-      const touch = touches.item(i);
+      const touch = touches.item(i) as any;
       if (!touch) continue;
       const touchX = touch.clientX - rect.left;
+      const touchY = touch.clientY - rect.top;
       const xRatio = touchX / rect.width;
       
-      // MOVEMENT ZONES: Left 35%, Right 35%
-      // DEAD ZONE/JUMP ZONE: Middle 30%
-      if (xRatio < 0.35) left = true;
-      else if (xRatio > 0.65) right = true;
+      if (xRatio < 0.35) {
+        if (touchY > rect.height - 210) {
+          if (touchY < rect.height - 110) jumping = true;
+          else left = true;
+        }
+      } else if (xRatio > 0.65) {
+        if (touchY > rect.height - 110) right = true;
+      }
     }
     
     setIsTouchingLeft(left);
     setIsTouchingRight(right);
+    setIsJumpActive(jumping);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Only call preventDefault if it doesn't break clicking buttons inside
+    updateMovementStates(e.touches);
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    // Separate logic: One pass for Jumps (on new touches), one for Movement (all touches)
-    Array.from(e.changedTouches).forEach((touch) => {
+    Array.from(e.changedTouches).forEach((touch: any) => {
       const touchX = touch.clientX - rect.left;
+      const touchY = touch.clientY - rect.top;
       const xRatio = touchX / rect.width;
-      
-      // JUMP ZONE: Middle 30% ONLY
-      if (xRatio >= 0.35 && xRatio <= 0.65) {
+
+      if (xRatio < 0.35 && touchY > rect.height - 210 && touchY < rect.height - 110) {
         handleManualJump();
       }
     });
-
-    updateMovementStates(e.touches);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -441,6 +451,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.x += b.vx;
+        b.y += b.vy;
         const distX = b.x - (player.x + player.width / 2);
         const distY = b.y - (player.y + player.height / 2);
         const distance = Math.sqrt(distX * distX + distY * distY);
@@ -449,20 +460,43 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           bullets.splice(i, 1);
           continue;
         }
-        if (b.x < -50 || b.x > CANVAS_WIDTH + 50) bullets.splice(i, 1);
+        if (b.x < -100 || b.x > CANVAS_WIDTH + 100) bullets.splice(i, 1);
       }
 
+      // Turret Cycle logic
       for (let i = turrets.length - 1; i >= 0; i--) {
         const t = turrets[i];
-        if (t.fireCooldown > 0) t.fireCooldown--;
-        else {
-          bullets.push({
-            x: t.side === 'left' ? 10 : CANVAS_WIDTH - 10,
-            y: t.y + 10,
-            vx: t.side === 'left' ? 4.5 : -4.5,
-            radius: 6
-          });
-          t.fireCooldown = 110;
+        
+        // CLEANUP: Remove off-screen turrets to maintain performance
+        if (t.y > CANVAS_HEIGHT + 150) {
+          turrets.splice(i, 1);
+          continue;
+        }
+
+        t.fireCooldown++;
+
+        if (t.type === 'laser') {
+          const cycle = 480; 
+          const wait = 300;  
+          const current = t.fireCooldown % cycle;
+          
+          if (current >= wait) {
+            if (player.y + player.height > t.y + 5 && player.y < t.y + 15) {
+               if (!player.hasImmunity) triggerDeath();
+            }
+            if (current === wait) sfx.playTeleport(); 
+          }
+        } else {
+          // Normal bullet turret - fires every 2 seconds at 60fps
+          if (t.fireCooldown % 120 === 0) {
+            bullets.push({
+              x: t.side === 'left' ? 10 : CANVAS_WIDTH - 10,
+              y: t.y + 10,
+              vx: t.side === 'left' ? 5 : -5,
+              vy: 0,
+              radius: 6
+            });
+          }
         }
       }
 
@@ -551,14 +585,44 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       for(let y=score%40; y<CANVAS_HEIGHT; y+=40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke(); }
 
       turretsRef.current.forEach(t => {
-        ctx.fillStyle = COLORS.RED;
-        const tx = t.side === 'left' ? 0 : CANVAS_WIDTH - 15;
-        ctx.fillRect(tx, t.y, 15, 25);
+        const tx = t.side === 'left' ? 0 : CANVAS_WIDTH - 20;
+        ctx.fillStyle = t.type === 'laser' ? COLORS.PURPLE : COLORS.RED;
+        ctx.fillRect(tx, t.y, 20, 25);
+        
+        if (t.type === 'laser') {
+          const current = t.fireCooldown % 480;
+          if (current >= 240 && current < 300) {
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+            ctx.setLineDash([10, 5]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, t.y + 12);
+            ctx.lineTo(CANVAS_WIDTH, t.y + 12);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          } else if (current >= 300) {
+            const beamHeight = 12;
+            const gradient = ctx.createLinearGradient(0, t.y + 7, 0, t.y + 19);
+            gradient.addColorStop(0, 'rgba(255, 0, 255, 0.1)');
+            gradient.addColorStop(0.5, 'white');
+            gradient.addColorStop(1, 'rgba(255, 0, 255, 0.1)');
+            
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = COLORS.MAGENTA;
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, t.y + 7, CANVAS_WIDTH, beamHeight);
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(0, t.y + 12, CANVAS_WIDTH, 2);
+            ctx.shadowBlur = 0;
+          }
+        }
       });
 
       bulletsRef.current.forEach(b => {
         ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
-        ctx.fillStyle = COLORS.YELLOW; ctx.fill();
+        ctx.fillStyle = COLORS.YELLOW; 
+        ctx.fill();
         ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.stroke();
       });
 
@@ -628,7 +692,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       )}
 
-      {/* Exit Button - Top Left */}
       <button 
         onClick={(e) => { e.stopPropagation(); sfx.playClick(); onAbort(); }}
         className="absolute top-4 left-4 z-50 bg-red-600/90 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-white hover:text-red-600 transition-all shadow-[0_0_20px_rgba(239,68,68,0.6)] border-2 border-white/20 active:scale-95"
@@ -637,7 +700,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         <i className="fas fa-power-off text-xs"></i>
       </button>
 
-      {/* Meter - Top Right */}
       <div className="absolute top-4 right-4 z-20 text-right flex flex-col items-end pointer-events-none select-none">
         <div className="font-orbitron text-cyan-400 text-4xl md:text-6xl font-black drop-shadow-[0_0_20px_rgba(0,255,255,1)] italic tracking-tighter">
           {Math.floor(score)}<span className="text-sm md:text-xl ml-1 not-italic opacity-70">M</span>
@@ -650,28 +712,25 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       </div>
 
-      {/* Mobile Control Visualizers: Only show in Playing state */}
       {gameState === GameState.PLAYING && (
-        <div className="absolute inset-x-0 bottom-0 h-48 pointer-events-none flex justify-between items-end px-4 pb-8">
-          {/* Left Arrow */}
-          <div className={`w-20 h-20 rounded-2xl border-2 flex items-center justify-center transition-all ${isTouchingLeft ? 'bg-cyan-500 border-white scale-110' : 'bg-cyan-500/10 border-cyan-500/40 opacity-40'}`}>
-            <i className={`fas fa-arrow-left text-2xl ${isTouchingLeft ? 'text-black' : 'text-cyan-500'}`}></i>
-          </div>
+        <>
+          <div className="absolute inset-x-0 bottom-0 h-48 pointer-events-none flex justify-between items-end px-4 pb-8">
+            <div className="flex flex-col space-y-4">
+              <div className={`w-20 h-20 rounded-2xl border-2 flex items-center justify-center transition-all ${isJumpActive ? 'bg-cyan-500 border-white scale-110' : 'bg-cyan-500/10 border-cyan-500/40 opacity-40'}`}>
+                <i className={`fas fa-arrow-up text-2xl ${isJumpActive ? 'text-black' : 'text-cyan-500'}`}></i>
+              </div>
+              <div className={`w-20 h-20 rounded-2xl border-2 flex items-center justify-center transition-all ${isTouchingLeft ? 'bg-cyan-500 border-white scale-110' : 'bg-cyan-500/10 border-cyan-500/40 opacity-40'}`}>
+                <i className={`fas fa-arrow-left text-2xl ${isTouchingLeft ? 'text-black' : 'text-cyan-500'}`}></i>
+              </div>
+            </div>
 
-          {/* Jump Zone Indicator */}
-          <div className="flex flex-col items-center justify-center opacity-30">
-            <div className="text-[8px] font-orbitron text-white uppercase tracking-widest mb-1">Jump Sector</div>
-            <div className="w-16 h-10 border-x-2 border-dashed border-white/20"></div>
+            <div className={`w-20 h-20 rounded-2xl border-2 flex items-center justify-center transition-all ${isTouchingRight ? 'bg-cyan-500 border-white scale-110' : 'bg-cyan-500/10 border-cyan-500/40 opacity-40'}`}>
+              <i className={`fas fa-arrow-right text-2xl ${isTouchingRight ? 'text-black' : 'text-cyan-500'}`}></i>
+            </div>
           </div>
-
-          {/* Right Arrow */}
-          <div className={`w-20 h-20 rounded-2xl border-2 flex items-center justify-center transition-all ${isTouchingRight ? 'bg-cyan-500 border-white scale-110' : 'bg-cyan-500/10 border-cyan-500/40 opacity-40'}`}>
-            <i className={`fas fa-arrow-right text-2xl ${isTouchingRight ? 'text-black' : 'text-cyan-500'}`}></i>
-          </div>
-        </div>
+        </>
       )}
 
-      {/* Legend Toggle - Bottom Right */}
       <button 
         onClick={(e) => { e.stopPropagation(); sfx.playClick(); setShowLegend(true); }}
         className="absolute bottom-52 right-4 z-50 bg-cyan-500 text-black w-10 h-10 rounded-xl flex items-center justify-center hover:bg-white transition-all shadow-[0_0_20px_rgba(0,255,255,0.5)] border-2 border-white/20 active:scale-90"

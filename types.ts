@@ -43,6 +43,7 @@ export interface Bullet {
   x: number;
   y: number;
   vx: number;
+  vy: number;
   radius: number;
 }
 
@@ -52,6 +53,7 @@ export interface Turret {
   side: 'left' | 'right';
   fireCooldown: number;
   fired: boolean;
+  type?: 'normal' | 'laser';
 }
 
 export interface Player {
@@ -68,9 +70,6 @@ export interface Player {
   speedTimer: number;
 }
 
-/**
- * Added AnnouncerMessage interface to fix import errors in geminiService and Announcer components
- */
 export interface AnnouncerMessage {
   text: string;
   type: 'neutral' | 'praise' | 'insult';
