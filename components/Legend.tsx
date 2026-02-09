@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { COLORS } from '../constants.ts';
 
@@ -14,6 +15,7 @@ const Legend: React.FC<LegendProps> = ({ onClose }) => {
     { label: 'Immunity', color: COLORS.WHITE, desc: 'Hazard shield' },
     { label: 'Danger', color: COLORS.RED, desc: 'Insta-fail' },
     { label: 'Moving', color: COLORS.MAGENTA, desc: 'Kinetic platform' },
+    { label: 'Slippery', color: COLORS.SLIPPERY, desc: 'Low friction' },
   ];
 
   return (

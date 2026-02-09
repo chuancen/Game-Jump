@@ -4,13 +4,27 @@ export enum GameState {
   PLAYING = 'PLAYING',
   GAMEOVER = 'GAMEOVER',
   SHOP = 'SHOP',
-  EDITOR = 'EDITOR'
+  EDITOR = 'EDITOR',
+  LEADERBOARD = 'LEADERBOARD',
+  ACHIEVEMENTS = 'ACHIEVEMENTS'
 }
 
 export enum GameMode {
   CLASSIC = 'CLASSIC',
   RUSH = 'RUSH',
-  CUSTOM = 'CUSTOM'
+  CUSTOM = 'CUSTOM',
+  LEVELS = 'LEVELS'
+}
+
+export type CosmeticType = 'SKIN' | 'TRAIL' | 'LAUNCH_FX' | 'DEATH_FX' | 'PAD_THEME';
+
+export interface CosmeticItem {
+  id: string;
+  name: string;
+  type: CosmeticType;
+  value: string;
+  cost: number;
+  levelRequired?: number;
 }
 
 export interface CustomLevel {
@@ -18,13 +32,6 @@ export interface CustomLevel {
   name: string;
   platforms: Platform[];
   turrets: Turret[];
-}
-
-export interface Skin {
-  id: string;
-  name: string;
-  color: string;
-  cost: number;
 }
 
 export interface Platform {
@@ -35,9 +42,10 @@ export interface Platform {
   type: PlatformType;
   dx: number;
   broken?: boolean;
+  hitGlow?: number;
 }
 
-export type PlatformType = 'normal' | 'moving' | 'breakable' | 'spring' | 'teleport' | 'speed' | 'immunity' | 'kill';
+export type PlatformType = 'normal' | 'moving' | 'breakable' | 'spring' | 'teleport' | 'speed' | 'immunity' | 'kill' | 'slippery';
 
 export interface Bullet {
   x: number;
@@ -53,7 +61,7 @@ export interface Turret {
   side: 'left' | 'right';
   fireCooldown: number;
   fired: boolean;
-  type?: 'normal' | 'laser';
+  type?: 'normal' | 'laser' | 'wave';
 }
 
 export interface Player {
@@ -68,9 +76,41 @@ export interface Player {
   immunityTimer: number;
   hasSpeedBoost: boolean;
   speedTimer: number;
+  isSlamming: boolean;
+  grandslamJumpReady: boolean;
+  grandslamCooldown: number;
+  wallJumpUsed: boolean;
+  trailHistory: {x: number, y: number, alpha: number}[];
 }
 
 export interface AnnouncerMessage {
   text: string;
   type: 'neutral' | 'praise' | 'insult';
+}
+
+export interface LeaderboardEntry {
+  username: string;
+  score: number;
+  rank: string;
+  skinId: string;
+  timestamp: number;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  desc: string;
+  goal: number;
+  rewardType: 'COINS' | 'XP';
+  rewardAmount: number;
+  icon: string;
+}
+
+export interface UserStats {
+  totalMeters: number;
+  totalJumps: number;
+  totalDeaths: number;
+  sectorsBeat: number;
+  killPadsSurvived: number;
+  coinsEarned: number;
 }

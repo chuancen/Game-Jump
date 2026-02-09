@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,6 +48,15 @@
             100% { opacity: 0.98; }
         }
 
+        @keyframes secret-pulse {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.5; }
+        }
+
+        .animate-secret {
+            animation: secret-pulse 4s infinite ease-in-out;
+        }
+
         #root {
             animation: crt-flicker 0.15s infinite;
         }
@@ -79,7 +89,6 @@
 </head>
 <body>
     <div id="root"></div>
-    <!-- Explicitly load index.tsx to ensure Vercel and local environments boot correctly -->
     <script type="module" src="index.tsx"></script>
 </body>
 </html>
