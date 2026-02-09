@@ -408,7 +408,7 @@ const App: React.FC = () => {
                 <button onClick={() => setShowSecretTerminal(false)} className="hover:text-white transition-colors"><i className="fas fa-times"></i></button>
              </div>
              <form onSubmit={handleSecretAccessSubmit} className="space-y-4">
-                <div className="text-green-500 font-mono text-sm mb-2">> ENTER_AUTH_CODE:</div>
+                <div className="text-green-500 font-mono text-sm mb-2"> ENTER_AUTH_CODE:</div>
                 <input ref={terminalInputRef} value={secretInput} onChange={e => setSecretInput(e.target.value)} className="w-full bg-black border border-green-500/30 p-4 font-mono text-green-400 outline-none focus:border-green-500 transition-all rounded" spellCheck={false} />
                 <button type="submit" className="w-full bg-green-500 text-black py-3 font-orbitron font-bold uppercase tracking-widest hover:bg-white transition-all rounded">Override</button>
              </form>
