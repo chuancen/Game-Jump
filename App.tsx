@@ -50,13 +50,17 @@ const App: React.FC = () => {
     SKINS: ['default'],
     TRAILS: ['none'],
     DEATH_FX: ['poof'],
-    PAD_THEMES: ['classic']
+    PAD_THEMES: ['classic'],
+    BACKGROUNDS: ['stars'],
+    SKYBOXES: ['cyber']
   });
   const [activeCosmetics, setActiveCosmetics] = useState<Record<string, string>>({
     SKINS: 'default',
     TRAILS: 'none',
     DEATH_FX: 'poof',
-    PAD_THEMES: 'classic'
+    PAD_THEMES: 'classic',
+    BACKGROUNDS: 'stars',
+    SKYBOXES: 'cyber'
   });
 
   const [totalAltitude, setTotalAltitude] = useState(0);
@@ -77,7 +81,10 @@ const App: React.FC = () => {
     totalDeaths: 0,
     sectorsBeat: 0,
     killPadsSurvived: 0,
-    coinsEarned: 0
+    coinsEarned: 0,
+    skinsUnlocked: 1,
+    pointsSpent: 0,
+    checkpointsReached: 0
   });
 
   const userPrefix = username ? `neon_${username}_` : 'neon_';
@@ -140,6 +147,9 @@ const App: React.FC = () => {
       else if (ach.id.includes('sectors')) val = newStats.sectorsBeat;
       else if (ach.id.includes('coins')) val = newStats.coinsEarned;
       else if (ach.id.includes('deaths')) val = newStats.totalDeaths;
+      else if (ach.id.includes('skins')) val = newStats.skinsUnlocked || 0;
+      else if (ach.id.includes('points_spent')) val = newStats.pointsSpent || 0;
+      else if (ach.id.includes('checkpoints')) val = newStats.checkpointsReached || 0;
 
       if (val >= ach.goal) {
         setUnlockedAchievements(prev => {
@@ -235,8 +245,14 @@ const App: React.FC = () => {
     if (gameMode === GameMode.RUSH) {
       setRushProgress(altitude);
       localStorage.setItem(userPrefix + 'rush_progress', altitude.toString());
+      setUserStats(prev => {
+          const next = { ...prev, checkpointsReached: (prev.checkpointsReached || 0) + 1 };
+          localStorage.setItem(userPrefix + 'stats', JSON.stringify(next));
+          checkAchievements(next);
+          return next;
+      });
     }
-  }, [gameMode, userPrefix]);
+  }, [gameMode, userPrefix, checkAchievements]);
 
   const handleLevelComplete = useCallback((score: number) => {
     setCurrentScore(score);
@@ -318,13 +334,26 @@ const App: React.FC = () => {
     e.preventDefault();
     if (secretInput === "jokeysin4430") {
       const bonus = 999999;
+      // Grant Credits
       setCoins(prev => {
         const next = prev + bonus;
         localStorage.setItem(userPrefix + 'cr', next.toString());
         return next;
       });
+      // Grant Neural PTS directly via spentLevelPoints hack
+      setSpentLevelPoints(prev => {
+        const next = prev - bonus;
+        localStorage.setItem(userPrefix + 'spent_pts', next.toString());
+        return next;
+      });
+      // Grant massive Altitude/XP to jump levels up
+      setTotalAltitude(prev => {
+          const next = prev + (bonus * 10);
+          localStorage.setItem(userPrefix + 'total_alt', next.toString());
+          return next;
+      });
       sfx.playPowerup();
-      alert("Clearance confirmed. Neural link saturated with tokens.");
+      alert("Clearance confirmed. Neural link saturated with tokens and XP.");
       setShowSecretTerminal(false);
       setSecretInput('');
     } else {
@@ -356,19 +385,45 @@ const App: React.FC = () => {
     localStorage.setItem(userPrefix + 'cr', newVal.toString());
   };
 
-  const handleBuyCosmetic = (type: string, id: string, cost: number) => {
+  const handleBuyCosmetic = (type: string, id: string, cost: number, currency?: 'COINS' | 'POINTS') => {
     sfx.playPowerup();
-    setCoins(c => {
-      const newVal = c - cost;
-      persistCoins(newVal);
-      return newVal;
-    });
+    let nextUnlocked: Record<string, string[]> = { ...unlockedCosmetics };
+    if (currency === 'POINTS') {
+      setSpentLevelPoints(prev => {
+        const next = prev + cost;
+        localStorage.setItem(userPrefix + 'spent_pts', next.toString());
+        return next;
+      });
+      setUserStats(prev => {
+          const next = { ...prev, pointsSpent: (prev.pointsSpent || 0) + cost };
+          localStorage.setItem(userPrefix + 'stats', JSON.stringify(next));
+          checkAchievements(next);
+          return next;
+      });
+    } else {
+      setCoins(c => {
+        const newVal = c - cost;
+        persistCoins(newVal);
+        return newVal;
+      });
+    }
     setUnlockedCosmetics(prev => {
       const currentList = prev[type] || [];
       const next = { ...prev, [type]: [...currentList, id] };
+      nextUnlocked = next;
       localStorage.setItem(userPrefix + 'unlocked_cosmetics', JSON.stringify(next));
       return next;
     });
+
+    // Update stats for merits
+    if (type === 'SKINS') {
+        setUserStats(prev => {
+            const next = { ...prev, skinsUnlocked: nextUnlocked.SKINS.length };
+            localStorage.setItem(userPrefix + 'stats', JSON.stringify(next));
+            checkAchievements(next);
+            return next;
+        });
+    }
   };
 
   const handleEquipCosmetic = (type: string, id: string) => {
@@ -378,6 +433,22 @@ const App: React.FC = () => {
       localStorage.setItem(userPrefix + 'active_cosmetics', JSON.stringify(next));
       return next;
     });
+  };
+
+  const handleSpendLevelPoints = (id: string, cost: number) => {
+      sfx.playPowerup();
+      setSpentLevelPoints(p => {
+          const n = p + cost;
+          localStorage.setItem(userPrefix + 'spent_pts', n.toString());
+          return n;
+      });
+      setActiveLevelBoosts(p => [...p, id]);
+      setUserStats(prev => {
+          const next = { ...prev, pointsSpent: (prev.pointsSpent || 0) + cost };
+          localStorage.setItem(userPrefix + 'stats', JSON.stringify(next));
+          checkAchievements(next);
+          return next;
+      });
   };
 
   if (!username) {
@@ -408,7 +479,7 @@ const App: React.FC = () => {
                 <button onClick={() => setShowSecretTerminal(false)} className="hover:text-white transition-colors"><i className="fas fa-times"></i></button>
              </div>
              <form onSubmit={handleSecretAccessSubmit} className="space-y-4">
-                <div className="text-green-500 font-mono text-sm mb-2"> ENTER_AUTH_CODE:</div>
+                <div className="text-green-500 font-mono text-sm mb-2">> ENTER_AUTH_CODE:</div>
                 <input ref={terminalInputRef} value={secretInput} onChange={e => setSecretInput(e.target.value)} className="w-full bg-black border border-green-500/30 p-4 font-mono text-green-400 outline-none focus:border-green-500 transition-all rounded" spellCheck={false} />
                 <button type="submit" className="w-full bg-green-500 text-black py-3 font-orbitron font-bold uppercase tracking-widest hover:bg-white transition-all rounded">Override</button>
              </form>
@@ -438,7 +509,7 @@ const App: React.FC = () => {
           onBuyCosmetic={handleBuyCosmetic}
           onEquipCosmetic={handleEquipCosmetic}
           onBuyBoost={(type, cost) => { sfx.playPowerup(); setCoins(c => { const n=c-cost; persistCoins(n); return n; }); if(type==='double_credits') setDoubleCreditsNextRound(true); if(type==='double_jump') setDoubleJumpNextRound(true); }}
-          onSpendLevelPoints={(id, cost) => { sfx.playPowerup(); setSpentLevelPoints(p => { const n=p+cost; localStorage.setItem(userPrefix+'spent_pts', n.toString()); return n; }); setActiveLevelBoosts(p => [...p, id]); }}
+          onSpendLevelPoints={handleSpendLevelPoints}
           onClose={goHome}
         />
       )}

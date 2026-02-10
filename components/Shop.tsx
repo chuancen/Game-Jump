@@ -18,7 +18,7 @@ interface ShopProps {
   onBuyLife: (cost: number) => void;
   onBuyJump: (cost: number) => void;
   onBuyMeter: (cost: number) => void;
-  onBuyCosmetic: (type: string, id: string, cost: number) => void;
+  onBuyCosmetic: (type: string, id: string, cost: number, currency?: 'COINS' | 'POINTS') => void;
   onEquipCosmetic: (type: string, id: string) => void;
   onBuyBoost: (type: string, cost: number) => void;
   onSpendLevelPoints: (id: string, cost: number) => void;
@@ -30,7 +30,7 @@ const Shop: React.FC<ShopProps> = ({
   doubleCreditsActive, doubleJumpActive, level, levelPoints, activeLevelBoosts,
   onBuyLife, onBuyJump, onBuyMeter, onBuyCosmetic, onEquipCosmetic, onBuyBoost, onSpendLevelPoints, onClose 
 }) => {
-  const [tab, setTab] = useState<'upgrades' | 'skins' | 'effects' | 'boosts' | 'levels'>('upgrades');
+  const [tab, setTab] = useState<'upgrades' | 'skins' | 'effects' | 'world' | 'boosts' | 'levels'>('upgrades');
 
   const lifeCost = Math.floor(UPGRADE_BASE_COSTS.LIFE * Math.pow(2.0, extraLives));
   const jumpCost = Math.floor(UPGRADE_BASE_COSTS.JUMP * Math.pow(1.6, jumpLevel));
@@ -50,9 +50,9 @@ const Shop: React.FC<ShopProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-6 bg-black/50 p-1.5 rounded-2xl border border-white/5">
-          {(['upgrades', 'skins', 'effects', 'boosts', 'levels'] as const).map(t => (
-            <button key={t} onClick={() => { sfx.playClick(); setTab(t); }} className={`flex-1 py-3 px-2 text-[8px] md:text-[9px] font-orbitron font-bold uppercase tracking-[0.2em] rounded-xl transition-all ${tab === t ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(0,255,255,0.5)]' : 'text-gray-500 hover:text-cyan-400 hover:bg-white/5'}`}>{t}</button>
+        <div className="flex flex-wrap gap-1.5 mb-6 bg-black/50 p-1.5 rounded-2xl border border-white/5">
+          {(['upgrades', 'skins', 'effects', 'world', 'boosts', 'levels'] as const).map(t => (
+            <button key={t} onClick={() => { sfx.playClick(); setTab(t); }} className={`flex-1 py-3 px-1 text-[7px] md:text-[8px] font-orbitron font-bold uppercase tracking-[0.1em] rounded-xl transition-all ${tab === t ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(0,255,255,0.5)]' : 'text-gray-500 hover:text-cyan-400 hover:bg-white/5'}`}>{t}</button>
           ))}
         </div>
 
@@ -70,15 +70,14 @@ const Shop: React.FC<ShopProps> = ({
               {COSMETICS.SKINS.map(skin => {
                 const isUnlocked = unlockedCosmetics.SKINS.includes(skin.id);
                 const isActive = activeCosmetics.SKINS === skin.id;
-                const levelMet = level >= skin.levelRequired;
                 return (
-                  <div key={skin.id} className={`p-4 bg-black/40 border-2 rounded-2xl flex flex-col items-center space-y-4 ${isActive ? 'border-cyan-500' : 'border-white/5'} ${!levelMet ? 'opacity-30' : ''}`}>
+                  <div key={skin.id} className={`p-4 bg-black/40 border-2 rounded-2xl flex flex-col items-center space-y-4 ${isActive ? 'border-cyan-500' : 'border-white/5'}`}>
                     <div className="w-10 h-10 rounded-lg" style={{ backgroundColor: skin.value }} />
                     <div className="text-center font-orbitron uppercase text-[9px] text-white tracking-tighter">{skin.name}</div>
                     {isUnlocked ? (
                       <button onClick={() => onEquipCosmetic('SKINS', skin.id)} className={`w-full py-2 rounded-lg text-[9px] font-bold font-orbitron ${isActive ? 'bg-cyan-500 text-black' : 'bg-gray-800 text-cyan-400'}`}>{isActive ? 'ACTIVE' : 'EQUIP'}</button>
                     ) : (
-                      <button disabled={coins < skin.cost || !levelMet} onClick={() => onBuyCosmetic('SKINS', skin.id, skin.cost)} className="w-full bg-yellow-600 py-2 rounded-lg text-[9px] font-bold font-orbitron text-black">{skin.cost} CR</button>
+                      <button disabled={coins < skin.cost} onClick={() => onBuyCosmetic('SKINS', skin.id, skin.cost)} className="w-full bg-yellow-600 py-2 rounded-lg text-[9px] font-bold font-orbitron text-black disabled:bg-gray-800 disabled:text-gray-500">{skin.cost} CR</button>
                     )}
                   </div>
                 );
@@ -88,36 +87,16 @@ const Shop: React.FC<ShopProps> = ({
 
           {tab === 'effects' && (
             <div className="space-y-6">
-              <div>
-                <h3 className="text-cyan-400 font-orbitron text-[10px] mb-3 uppercase tracking-widest font-bold">Neural Trails</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {COSMETICS.TRAILS.map(trail => {
-                    const isUnlocked = unlockedCosmetics.TRAILS.includes(trail.id);
-                    const isActive = activeCosmetics.TRAILS === trail.id;
-                    return (
-                      <button key={trail.id} onClick={() => isUnlocked ? onEquipCosmetic('TRAILS', trail.id) : (coins >= trail.cost && onBuyCosmetic('TRAILS', trail.id, trail.cost))} className={`p-3 border-2 rounded-xl text-left transition-all ${isActive ? 'border-cyan-500 bg-cyan-500/10' : 'border-white/5 bg-black/40'}`}>
-                         <div className="text-[10px] font-orbitron text-white uppercase">{trail.name}</div>
-                         <div className="text-[8px] text-cyan-500/50 mt-1">{isActive ? 'Equipped' : isUnlocked ? 'Owned' : `${trail.cost} CR`}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-red-400 font-orbitron text-[10px] mb-3 uppercase tracking-widest font-bold">Termination FX</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {COSMETICS.DEATH_FX.map(fx => {
-                    const isUnlocked = unlockedCosmetics.DEATH_FX.includes(fx.id);
-                    const isActive = activeCosmetics.DEATH_FX === fx.id;
-                    return (
-                      <button key={fx.id} onClick={() => isUnlocked ? onEquipCosmetic('DEATH_FX', fx.id) : (coins >= fx.cost && onBuyCosmetic('DEATH_FX', fx.id, fx.cost))} className={`p-3 border-2 rounded-xl text-left transition-all ${isActive ? 'border-red-500 bg-red-500/10' : 'border-white/5 bg-black/40'}`}>
-                         <div className="text-[10px] font-orbitron text-white uppercase">{fx.name}</div>
-                         <div className="text-[8px] text-red-500/50 mt-1">{isActive ? 'Equipped' : isUnlocked ? 'Owned' : `${fx.cost} CR`}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <CosmeticSection title="Neural Trails" items={COSMETICS.TRAILS} type="TRAILS" unlocked={unlockedCosmetics.TRAILS} active={activeCosmetics.TRAILS} currency={coins} points={levelPoints} onEquip={onEquipCosmetic} onBuy={onBuyCosmetic} />
+              <CosmeticSection title="Termination FX" items={COSMETICS.DEATH_FX} type="DEATH_FX" unlocked={unlockedCosmetics.DEATH_FX} active={activeCosmetics.DEATH_FX} currency={coins} points={levelPoints} onEquip={onEquipCosmetic} onBuy={onBuyCosmetic} />
+            </div>
+          )}
+
+          {tab === 'world' && (
+            <div className="space-y-6 pb-4">
+              <CosmeticSection title="Atmosphere (Sky)" items={COSMETICS.SKYBOXES} type="SKYBOXES" unlocked={unlockedCosmetics.SKYBOXES} active={activeCosmetics.SKYBOXES} currency={coins} points={levelPoints} onEquip={onEquipCosmetic} onBuy={onBuyCosmetic} />
+              <CosmeticSection title="Background Layers" items={COSMETICS.BACKGROUNDS} type="BACKGROUNDS" unlocked={unlockedCosmetics.BACKGROUNDS} active={activeCosmetics.BACKGROUNDS} currency={coins} points={levelPoints} onEquip={onEquipCosmetic} onBuy={onBuyCosmetic} />
+              <CosmeticSection title="Platform Aesthetics" items={COSMETICS.PAD_THEMES} type="PAD_THEMES" unlocked={unlockedCosmetics.PAD_THEMES} active={activeCosmetics.PAD_THEMES} currency={coins} points={levelPoints} onEquip={onEquipCosmetic} onBuy={onBuyCosmetic} />
             </div>
           )}
 
@@ -148,6 +127,37 @@ const Shop: React.FC<ShopProps> = ({
     </div>
   );
 };
+
+const CosmeticSection: React.FC<{ 
+  title: string, items: any[], type: string, unlocked: string[], active: string, currency: number, points: number, 
+  onEquip: (t: string, id: string) => void, onBuy: (t: string, id: string, c: number, curr?: any) => void 
+}> = ({ title, items, type, unlocked, active, currency, points, onEquip, onBuy }) => (
+  <div>
+    <h3 className="text-cyan-400 font-orbitron text-[10px] mb-3 uppercase tracking-widest font-bold">{title}</h3>
+    <div className="grid grid-cols-2 gap-3">
+      {items.map(item => {
+        const isUnlocked = unlocked.includes(item.id);
+        const isActive = active === item.id;
+        const currencyType = item.currency || 'COINS';
+        const userBudget = currencyType === 'COINS' ? currency : points;
+        const canAfford = userBudget >= item.cost;
+
+        return (
+          <button 
+            key={item.id} 
+            onClick={() => isUnlocked ? onEquip(type, item.id) : (canAfford && onBuy(type, item.id, item.cost, currencyType))} 
+            className={`p-3 border-2 rounded-xl text-left transition-all ${isActive ? 'border-cyan-500 bg-cyan-500/10' : 'border-white/5 bg-black/40'}`}
+          >
+             <div className="text-[10px] font-orbitron text-white uppercase truncate">{item.name}</div>
+             <div className={`text-[8px] mt-1 font-bold ${isActive ? 'text-cyan-400' : isUnlocked ? 'text-green-500' : 'text-gray-500'}`}>
+                {isActive ? 'EQUIPPED' : isUnlocked ? 'OWNED' : `${item.cost} ${currencyType === 'COINS' ? 'CR' : 'PTS'}`}
+             </div>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
 
 const UpgradeRow: React.FC<{ label: string, desc: string, sub: string, cost: number, color: string, coins: number, onBuy: () => void }> = ({ label, desc, sub, cost, color, coins, onBuy }) => (
   <div className={`flex justify-between items-center p-5 bg-black/50 border-2 rounded-2xl border-${color}-500/30`}>

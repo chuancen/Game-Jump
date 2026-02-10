@@ -16,8 +16,14 @@ export const MAX_PLATFORMS = 20;
 export const VERTICAL_GAP = 70;
 
 export const GRANDSLAM_COOLDOWN_MS = 15000;
+export const ANCHOR_COOLDOWN_MS = 15000;
 export const GRANDSLAM_SLAM_VELOCITY = 18;
+export const ANCHOR_VELOCITY = 22; // Faster than slam but no landing bonus
 export const GRANDSLAM_JUMP_MULTIPLIER = 1.6;
+
+export const AERIAL_OBSTACLE_SPAWN_CHANCE = 0.005; 
+export const DRONE_SPEED_MIN = 1.5;
+export const DRONE_SPEED_MAX = 3.5;
 
 export const COLORS = {
   CYAN: '#00ffff',
@@ -30,18 +36,23 @@ export const COLORS = {
   BLUE: '#0088ff',
   BG: '#0a0a1a',
   PLAYER: '#00ffaa',
-  SLIPPERY: '#4da6ff'
+  SLIPPERY: '#4da6ff',
+  TILTED: '#ff8800' // New color for tilted pads
 };
 
 export const COSMETICS: { [key: string]: any[] } = {
   SKINS: [
-    { id: 'default', name: 'NEON PRIME', value: '#00ffaa', cost: 0, levelRequired: 1, style: 'glow' },
-    { id: 'slime', name: 'BIO-CELL', value: '#adff2f', cost: 50, levelRequired: 5, style: 'bubble' },
-    { id: 'robot', name: 'MK-ULTRA', value: '#a1a1aa', cost: 150, levelRequired: 10, style: 'core' },
-    { id: 'shadow', name: 'VOID SPECTRE', value: '#ffffff', cost: 300, levelRequired: 20, style: 'ghost' },
-    { id: 'vanguard', name: 'VANGUARD OMEGA', value: '#0088ff', cost: 600, levelRequired: 35, style: 'shield' },
-    { id: 'gold', name: 'ZENITH GOLD', value: '#fbbf24', cost: 1200, levelRequired: 50, style: 'aura' },
-    { id: 'glitch', name: 'SYSTEM_ERROR', value: '#ff00ff', cost: 2500, levelRequired: 70, style: 'glitch' },
+    { id: 'default', name: 'NEON PRIME', value: '#00ffaa', cost: 0, style: 'glow' },
+    { id: 'slime', name: 'BIO-CELL', value: '#adff2f', cost: 50, style: 'bubble' },
+    { id: 'robot', name: 'MK-ULTRA', value: '#a1a1aa', cost: 150, style: 'core' },
+    { id: 'shadow', name: 'VOID SPECTRE', value: '#ffffff', cost: 300, style: 'ghost' },
+    { id: 'vanguard', name: 'VANGUARD OMEGA', value: '#0088ff', cost: 600, style: 'shield' },
+    { id: 'gold', name: 'ZENITH GOLD', value: '#fbbf24', cost: 1200, style: 'aura' },
+    { id: 'glitch', name: 'SYSTEM_ERROR', value: '#ff00ff', cost: 2500, style: 'glitch' },
+    { id: 'shard_lord', name: 'SHARD ARCHON', value: '#6366f1', cost: 5000, style: 'archon' },
+    { id: 'valkyrie', name: 'CYBER VALKYRIE', value: '#f43f5e', cost: 8000, style: 'angel' },
+    { id: 'overseer', name: 'VOID OVERSEER', value: '#10b981', cost: 12000, style: 'orbital' },
+    { id: 'supernova', name: 'STAR KILLER', value: '#f97316', cost: 20000, style: 'supernova' },
   ],
   TRAILS: [
     { id: 'none', name: 'STEALTH', value: 'none', cost: 0 },
@@ -58,16 +69,36 @@ export const COSMETICS: { [key: string]: any[] } = {
   PAD_THEMES: [
     { id: 'classic', name: 'TECH', value: 'classic', cost: 0 },
     { id: 'void', name: 'VOID-GRID', value: 'void', cost: 600 },
+    { id: 'laser', name: 'NEON ETCH', value: 'laser', cost: 1200 },
+    { id: 'hazard', name: 'BIO-WASTE', value: 'hazard', cost: 2500 },
+    { id: 'chrome', name: 'LIQUID SILVER', value: 'chrome', cost: 5, currency: 'POINTS' },
+  ],
+  BACKGROUNDS: [
+    { id: 'stars', name: 'STATIC VOID', value: 'stars', cost: 0 },
+    { id: 'digital', name: 'DATA FLOW', value: 'digital', cost: 400 },
+    { id: 'nebula', name: 'COSMIC DUST', value: 'nebula', cost: 1500 },
+    { id: 'industrial', name: 'GEAR WORKS', value: 'industrial', cost: 10, currency: 'POINTS' },
+  ],
+  SKYBOXES: [
+    { id: 'cyber', name: 'GRID DEFAULT', value: 'cyber', cost: 0 },
+    { id: 'sunset', name: 'RETR0 WAVE', value: 'sunset', cost: 800 },
+    { id: 'midnight', name: 'DEEP NIGHT', value: 'midnight', cost: 2000 },
+    { id: 'toxic', name: 'SECTOR-7', value: 'toxic', cost: 15, currency: 'POINTS' },
   ]
 };
 
 export const ACHIEVEMENTS: any[] = [
-  { id: 'meters_1000', name: 'Cloud Chaser', desc: 'Ascend a total of 15,000M', goal: 15000, rewardType: 'COINS', rewardAmount: 50, icon: 'fa-cloud-upload' },
-  { id: 'meters_10000', name: 'Stratosphere', desc: 'Ascend a total of 50,000M', goal: 50000, rewardType: 'XP', rewardAmount: 1000, icon: 'fa-rocket' },
-  { id: 'sectors_1', name: 'Sector Explorer', desc: 'Beat your first Sector Operation', goal: 1, rewardType: 'COINS', rewardAmount: 100, icon: 'fa-map' },
-  { id: 'sectors_5', name: 'Sector Master', desc: 'Beat 10 Sector Operations', goal: 10, rewardType: 'XP', rewardAmount: 2500, icon: 'fa-trophy' },
-  { id: 'coins_500', name: 'Token Miner', desc: 'Earn a total of 2,500 Credits', goal: 2500, rewardType: 'COINS', rewardAmount: 100, icon: 'fa-coins' },
-  { id: 'deaths_10', name: 'Glitch in the Matrix', desc: 'Fail 50 times', goal: 50, rewardType: 'COINS', rewardAmount: 25, icon: 'fa-skull' },
+  { id: 'meters_15000', name: 'Cloud Chaser', desc: 'Ascend total 15,000M', goal: 15000, rewardType: 'COINS', rewardAmount: 50, icon: 'fa-cloud-upload' },
+  { id: 'meters_50000', name: 'Stratosphere', desc: 'Ascend total 50,000M', goal: 50000, rewardType: 'XP', rewardAmount: 1000, icon: 'fa-rocket' },
+  { id: 'sectors_1', name: 'Sector Explorer', desc: 'Beat your first Sector', goal: 1, rewardType: 'COINS', rewardAmount: 100, icon: 'fa-map' },
+  { id: 'sectors_10', name: 'Sector Master', desc: 'Beat 10 Sectors', goal: 10, rewardType: 'XP', rewardAmount: 2500, icon: 'fa-trophy' },
+  { id: 'coins_2500', name: 'Token Miner', desc: 'Earn total 2,500 Credits', goal: 2500, rewardType: 'COINS', rewardAmount: 100, icon: 'fa-coins' },
+  { id: 'deaths_50', name: 'Glitch in Matrix', desc: 'Fail 50 times', goal: 50, rewardType: 'COINS', rewardAmount: 25, icon: 'fa-skull' },
+  { id: 'skins_3', name: 'Style Icon', desc: 'Unlock 3 unique skins', goal: 3, rewardType: 'COINS', rewardAmount: 200, icon: 'fa-user-tie' },
+  { id: 'skins_5', name: 'Vanguard Elite', desc: 'Unlock 5 unique skins', goal: 5, rewardType: 'XP', rewardAmount: 1500, icon: 'fa-gem' },
+  { id: 'skins_10', name: 'Fashion Overlord', desc: 'Unlock 10 unique skins', goal: 10, rewardType: 'COINS', rewardAmount: 1000, icon: 'fa-crown' },
+  { id: 'points_spent_50', name: 'Neural Architect', desc: 'Spend 50 Neural PTS', goal: 50, rewardType: 'COINS', rewardAmount: 500, icon: 'fa-brain' },
+  { id: 'checkpoints_10', name: 'Matrix Runner', desc: 'Reach 10 Rush Checkpoints', goal: 10, rewardType: 'COINS', rewardAmount: 250, icon: 'fa-route' },
 ];
 
 export const UPGRADE_BASE_COSTS = { LIFE: 15, MULTIPLIER: 5, JUMP: 8 };

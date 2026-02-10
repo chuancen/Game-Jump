@@ -16,6 +16,7 @@ const Legend: React.FC<LegendProps> = ({ onClose }) => {
     { label: 'Danger', color: COLORS.RED, desc: 'Insta-fail' },
     { label: 'Moving', color: COLORS.MAGENTA, desc: 'Kinetic platform' },
     { label: 'Slippery', color: COLORS.SLIPPERY, desc: 'Low friction' },
+    { label: 'Tilted', color: COLORS.TILTED, desc: 'Diagonal slide' },
   ];
 
   return (
@@ -29,11 +30,11 @@ const Legend: React.FC<LegendProps> = ({ onClose }) => {
             </button>
           )}
         </div>
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto max-h-[350px] custom-scrollbar pr-2">
           {items.map(item => (
             <div key={item.label} className="flex items-center space-x-3 group">
               <div 
-                className="w-4 h-4 rounded shadow-[0_0_8px_rgba(255,255,255,0.5)]" 
+                className="w-4 h-4 rounded shadow-[0_0_8px_rgba(255,255,255,0.5)] flex-shrink-0" 
                 style={{ backgroundColor: item.color, boxShadow: `0 0 12px ${item.color}` }}
               />
               <div className="flex flex-col">

@@ -16,7 +16,7 @@ export enum GameMode {
   LEVELS = 'LEVELS'
 }
 
-export type CosmeticType = 'SKIN' | 'TRAIL' | 'LAUNCH_FX' | 'DEATH_FX' | 'PAD_THEME';
+export type CosmeticType = 'SKIN' | 'TRAIL' | 'LAUNCH_FX' | 'DEATH_FX' | 'PAD_THEME' | 'BACKGROUND' | 'SKYBOX';
 
 export interface CosmeticItem {
   id: string;
@@ -24,6 +24,7 @@ export interface CosmeticItem {
   type: CosmeticType;
   value: string;
   cost: number;
+  currency?: 'COINS' | 'POINTS';
   levelRequired?: number;
 }
 
@@ -41,11 +42,12 @@ export interface Platform {
   height: number;
   type: PlatformType;
   dx: number;
+  angle?: number; // Added for tilted pads
   broken?: boolean;
   hitGlow?: number;
 }
 
-export type PlatformType = 'normal' | 'moving' | 'breakable' | 'spring' | 'teleport' | 'speed' | 'immunity' | 'kill' | 'slippery';
+export type PlatformType = 'normal' | 'moving' | 'breakable' | 'spring' | 'teleport' | 'speed' | 'immunity' | 'kill' | 'slippery' | 'tilted';
 
 export interface Bullet {
   x: number;
@@ -77,8 +79,10 @@ export interface Player {
   hasSpeedBoost: boolean;
   speedTimer: number;
   isSlamming: boolean;
+  isAnchoring: boolean; // Added for anchor power
   grandslamJumpReady: boolean;
   grandslamCooldown: number;
+  anchorCooldown: number; // Added for anchor timer
   wallJumpUsed: boolean;
   trailHistory: {x: number, y: number, alpha: number}[];
 }
@@ -113,4 +117,7 @@ export interface UserStats {
   sectorsBeat: number;
   killPadsSurvived: number;
   coinsEarned: number;
+  skinsUnlocked?: number;
+  pointsSpent?: number;
+  checkpointsReached?: number;
 }
